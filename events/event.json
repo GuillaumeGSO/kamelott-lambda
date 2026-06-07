@@ -1,0 +1,15 @@
+{
+  "httpMethod": "GET",
+  "path": "/kamelott",
+  "queryStringParameters": null,
+  "headers": {
+    "Accept": "application/json"
+  },
+  "requestContext": {
+    "stage": "prod",
+    "httpMethod": "GET",
+    "resourcePath": "/kamelott"
+  },
+  "body": null,
+  "isBase64Encoded": false
+}

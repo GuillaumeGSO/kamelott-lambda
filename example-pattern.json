@@ -1,0 +1,48 @@
+{
+    "title": "Kaamelott lorem ipsum — AWS Lambda and Amazon API Gateway REST API",
+    "description": "Returns a random Kaamelott quote on each GET request. No external dependencies — quotes are bundled directly in the Lambda.",
+    "language": "Node",
+    "level": "200",
+    "framework": "AWS SAM",
+    "introBox": {
+      "headline": "How it works",
+      "text": [
+        "A GET request to /kamelott triggers the Lambda function, which picks a random quote from a bundled JSON dataset of 2537 Kaamelott quotes and returns it as JSON.",
+        "This pattern deploys one Lambda function and one API Gateway REST API."
+      ]
+    },
+    "gitHub": {
+      "template": {
+        "templateFile": "template.yaml"
+      }
+    },
+    "resources": {
+      "bullets": [
+        {
+          "text": "Invoking a Lambda function using an Amazon API Gateway endpoint",
+          "link": "https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html"
+        },
+        {
+          "text": "Amazon API Gateway REST API",
+          "link": "https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-rest-api.html"
+        }
+      ]
+    },
+    "deploy": {
+      "text": [
+        "sam deploy --guided"
+      ]
+    },
+    "testing": {
+      "text": [
+        "sam local invoke KamelottFunction -e events/event.json",
+        "curl http://localhost:3000/kamelott"
+      ]
+    },
+    "cleanup": {
+      "text": [
+        "Delete the application: <code>sam delete</code>."
+      ]
+    },
+    "authors": []
+}

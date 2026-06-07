@@ -1,0 +1,11 @@
+version = 0.1
+
+[default.global.parameters]
+stack_name = "kamelott"
+region = "ap-southeast-1"
+
+[default.sync.parameters]
+template_file = "/home/guillaume/Dev/aws/lambda/kamelott/lambda-kamelott/template.yaml"
+dependency_layer = false
+build_in_source = true
+watch = true

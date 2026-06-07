@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Kaamelott lorem ipsum — random quote generator Lambda + API Gateway REST API
+
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+  KamelottFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: kamelott/
+      Handler: app.lambdaHandler
+      Runtime: nodejs24.x
+      Architectures:
+        - x86_64
+      Events:
+        Kamelott:
+          Type: Api
+          Properties:
+            Path: /kamelott
+            Method: get
+
+Outputs:
+  KamelottApi:
+    Description: API Gateway endpoint URL for Prod stage for Kamelott function
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/Prod/kamelott/
+  KamelottFunction:
+    Description: Kamelott Lambda Function ARN
+    Value: !GetAtt KamelottFunction.Arn
+  KamelottFunctionIamRole:
+    Description: Implicit IAM Role created for Kamelott function
+    Value: !GetAtt KamelottFunctionRole.Arn
