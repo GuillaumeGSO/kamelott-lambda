@@ -1,11 +1,23 @@
 version = 0.1
 
 [default.global.parameters]
-stack_name = "kamelott"
 region = "ap-southeast-1"
 
-[default.sync.parameters]
-template_file = "/home/guillaume/Dev/aws/lambda/kamelott/lambda-kamelott/template.yaml"
-dependency_layer = false
-build_in_source = true
-watch = true
+[staging.global.parameters]
+stack_name = "kamelott-staging"
+region = "ap-southeast-1"
+
+[staging.deploy.parameters]
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+force_upload = true
+
+[prod.global.parameters]
+stack_name = "kamelott-prod"
+region = "ap-southeast-1"
+
+[prod.deploy.parameters]
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+force_upload = true
+confirm_changeset = true

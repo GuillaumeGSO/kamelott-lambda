@@ -19,7 +19,13 @@ Returns a random [Kaamelott](https://fr.wikipedia.org/wiki/Kaamelott) quote on e
 
 - [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
 - [Docker](https://hub.docker.com/search/?type=edition&offering=community) (for local invocation)
-- AWS credentials configured (`aws configure`)
+- AWS credentials — refresh them from the IAM Identity Center portal and export as environment variables:
+  ```bash
+  export AWS_ACCESS_KEY_ID=...
+  export AWS_SECRET_ACCESS_KEY=...
+  export AWS_SESSION_TOKEN=...
+  ```
+  Or use a named profile: `--profile <your-profile>`
 
 ## API response
 
@@ -27,15 +33,25 @@ Each GET request returns a JSON object with a random quote:
 
 ```json
 {
-  "id": 725560,
-  "quote": "C'est pas faux."
+  "quoteId": "7XLMZGpC",
+  "character": "Perceval",
+  "text": "C'est pas faux.",
+  "actor": "Franck Pitiot",
+  "film": null,
+  "season": "Livre I",
+  "episode": "La Quête"
 }
 ```
 
-| Field   | Type    | Description                        |
-|---------|---------|------------------------------------|
-| `id`    | number  | Unique identifier for the quote    |
-| `quote` | string  | The Kaamelott quote                |
+| Field       | Type             | Description                              |
+|-------------|------------------|------------------------------------------|
+| `quoteId`   | string           | Unique identifier for the quote          |
+| `character` | string           | Character who says the quote             |
+| `text`      | string           | The Kaamelott quote                      |
+| `actor`     | string           | Actor who plays the character            |
+| `film`      | string \| null   | Film title if from the movie, else null  |
+| `season`    | string \| null   | Season if from the series, else null     |
+| `episode`   | string \| null   | Episode title if from the series, else null |
 
 ## Local testing
 
@@ -55,12 +71,12 @@ curl http://localhost:3000/kamelott
 
 ## Environments
 
-The project uses two isolated stacks — `kamelott-stage` and `kamelott-prod` — each with its own Lambda and API Gateway. Configuration is managed in `samconfig.toml`.
+The project uses two isolated stacks — `kamelott-staging` and `kamelott-prod` — each with its own Lambda and API Gateway. Configuration is managed in `samconfig.toml`.
 
-| Environment | Stack name      | API stage | Command                                  |
-|-------------|-----------------|-----------|------------------------------------------|
-| Stage       | `kamelott-stage`| `stage`   | `sam deploy --config-env stage`          |
-| Prod        | `kamelott-prod` | `prod`    | `sam deploy --config-env prod`           |
+| Environment | Stack name        | Config env  | Behaviour                              |
+|-------------|-------------------|-------------|----------------------------------------|
+| Staging     | `kamelott-staging`| `staging`   | Deploys immediately, no confirmation   |
+| Prod        | `kamelott-prod`   | `prod`      | Shows changeset, requires confirmation |
 
 ## Deploy
 
@@ -70,13 +86,13 @@ Always build before deploying:
 sam build
 ```
 
-Deploy to **stage**:
+Deploy to **staging**:
 
 ```bash
-sam deploy --config-env stage
+sam deploy --config-env staging
 ```
 
-Deploy to **prod** (only after validating on stage):
+Deploy to **prod** (only after validating on staging):
 
 ```bash
 sam deploy --config-env prod
@@ -85,20 +101,19 @@ sam deploy --config-env prod
 The API Gateway URL is printed in the stack outputs at the end of each deployment:
 
 ```
-https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/stage/kamelott/
-https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/prod/kamelott/
+https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/Prod/kamelott/
 ```
 
 ## Remote test
 
 ```bash
-curl https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/stage/kamelott/
+curl https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/Prod/kamelott/
 ```
 
 ## Logs
 
 ```bash
-sam logs -n KamelottFunction --stack-name kamelott-stage --tail
+sam logs -n KamelottFunction --stack-name kamelott-staging --tail
 sam logs -n KamelottFunction --stack-name kamelott-prod --tail
 ```
 
@@ -107,7 +122,7 @@ sam logs -n KamelottFunction --stack-name kamelott-prod --tail
 Delete a specific stack:
 
 ```bash
-sam delete --stack-name kamelott-stage
+sam delete --stack-name kamelott-staging
 sam delete --stack-name kamelott-prod
 ```
 

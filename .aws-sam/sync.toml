@@ -2,8 +2,7 @@
 
 [sync_state]
 dependency_layer = false
-latest_infra_sync_time = 1780826549.433528
 
 [resource_sync_states."ZipFunctionSyncFlow:KamelottFunction"]
-hash = "7b185af13d200f1380eed3df55d92139846c853458a8f11428efb9a6e4d38c1c"
-sync_time = 1780833524.018082
+hash = "f6ca600e1b25154561dc2f2bbfc905b0df56521f0a6579ff569b731c07d69a43"
+sync_time = 1780903617.373356
