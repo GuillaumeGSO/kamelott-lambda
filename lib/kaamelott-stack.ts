@@ -131,17 +131,27 @@ export class KaamelottStack extends cdk.Stack {
       apiKeyRequired: true,
     });
 
-    // Reuse existing API key (created outside CDK)
-    const apiKeyId = isProd ? 'hooyp3210e' : 'wq2nh96btl';
-    const apiKey = apigateway.ApiKey.fromApiKeyId(this, 'ExistingApiKey', apiKeyId);
+    const apiKey = new apigateway.ApiKey(this, 'ApiKey', {
+      apiKeyName: `kaamelott-${environment}`,
+      description: `API key for kaamelott-${environment}`,
+    });
 
     const usagePlan = new apigateway.UsagePlan(this, 'UsagePlan', {
       name: `kaamelott-usage-plan-${environment}`,
       apiStages: [{ api, stage: api.deploymentStage }],
+      quota: {
+        limit: 1000,
+        period: apigateway.Period.DAY,
+      },
     });
     usagePlan.addApiKey(apiKey);
 
     // Outputs
+    new cdk.CfnOutput(this, 'ApiKeyId', {
+      value: apiKey.keyId,
+      description: 'Look up key value: aws apigateway get-api-key --api-key <id> --include-value --region ap-southeast-1 --query value --output text',
+    });
+
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: `${api.url}quotes`,
       description: 'Base API URL — append /{character} to filter by character',
