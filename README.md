@@ -33,6 +33,7 @@ S3 (quotes.json)
 |--------|------|-------------|
 | `GET` | `/quotes` | Random quote from any character |
 | `GET` | `/quotes/{character}` | Random quote for a specific character |
+| `GET` | `/characters` | Sorted list of all character names |
 
 ### Response format
 
@@ -140,6 +141,7 @@ npx cdk destroy --context env=staging
 ├── lambdas/
 │   ├── get-random-quote/         # GET /quotes
 │   ├── get-quote-by-character/   # GET /quotes/{character}
+│   ├── get-characters/           # GET /characters
 │   └── load-quotes/              # Admin: load quotes.json from S3 → DynamoDB
 ├── data/
 │   └── quotes.json               # 1 028 Kaamelott quotes (source of truth, uploaded to S3 on deploy)

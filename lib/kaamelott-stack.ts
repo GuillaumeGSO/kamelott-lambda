@@ -78,6 +78,17 @@ export class KaamelottStack extends cdk.Stack {
     });
     table.grantReadData(getQuoteByCharacter);
 
+    // Lambda: GET /characters
+    const getCharacters = new lambda.Function(this, 'GetCharacters', {
+      ...lambdaDefaults,
+      functionName: `kaamelott-get-characters-${environment}`,
+      code: lambda.Code.fromAsset('lambdas/get-characters'),
+      handler: 'index.lambdaHandler',
+      timeout: cdk.Duration.seconds(10),
+      description: 'Returns the sorted list of characters present in DynamoDB',
+    });
+    table.grantReadData(getCharacters);
+
     // Lambda: admin loader (no API route)
     const loadQuotes = new lambda.Function(this, 'LoadQuotes', {
       ...lambdaDefaults,
@@ -112,6 +123,11 @@ export class KaamelottStack extends cdk.Stack {
 
     const characterResource = quotes.addResource('{character}');
     characterResource.addMethod('GET', new apigateway.LambdaIntegration(getQuoteByCharacter), {
+      apiKeyRequired: true,
+    });
+
+    const characters = api.root.addResource('characters');
+    characters.addMethod('GET', new apigateway.LambdaIntegration(getCharacters), {
       apiKeyRequired: true,
     });
 
