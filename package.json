@@ -1,0 +1,16 @@
+{
+  "name": "kaamelott-lambda",
+  "version": "2.0.0",
+  "scripts": {
+    "build": "tsc",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@types/node": "~20",
+    "aws-cdk": "^2.200.0",
+    "aws-cdk-lib": "^2.200.0",
+    "constructs": "^10.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "~5.5.0"
+  }
+}
