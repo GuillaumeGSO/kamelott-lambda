@@ -1,35 +1,41 @@
-# Kaamelott lorem ipsum — AWS Lambda + API Gateway REST API (Node.js)
+# Kaamelott Lambda
 
-Returns a random [Kaamelott](https://fr.wikipedia.org/wiki/Kaamelott) quote on each GET request. 774 quotes bundled directly in the Lambda — no external dependencies.
+Serverless REST API returning random quotes from the French comedy series [Kaamelott](https://fr.wikipedia.org/wiki/Kaamelott). Built with AWS CDK (TypeScript), Lambda (Node.js 24.x), API Gateway, DynamoDB, and S3.
 
-## Project structure
+## Architecture
 
 ```
-.
-├── kamelott/
-│   ├── app.mjs          # Lambda handler
-│   └── quotes.json      # 774 bundled quotes
-├── events/
-│   └── event.json       # Sample invocation event for local testing
-├── template.yaml        # SAM template (Lambda + API Gateway)
-└── samconfig.toml       # Deployment config for stage and prod
+S3 (quotes.json)
+     │
+     └─► LoadQuotes Lambda (admin, one-time)
+               │
+               ▼
+          DynamoDB Table
+          ┌──────────────────────────────┐
+          │  PK: quoteId                 │
+          │  GSI: character-index        │
+          └──────────────────────────────┘
+               │                │
+               ▼                ▼
+   GetRandomQuote      GetQuoteByCharacter
+        Lambda               Lambda
+               │                │
+               └────────┬───────┘
+                        ▼
+                  API Gateway
 ```
 
-## Requirements
+**Environments:** `staging` and `prod`, each with their own DynamoDB table, S3 bucket, Lambda functions, and API Gateway stage.
 
-- [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
-- [Docker](https://hub.docker.com/search/?type=edition&offering=community) (for local invocation)
-- AWS credentials — refresh them from the IAM Identity Center portal and export as environment variables:
-  ```bash
-  export AWS_ACCESS_KEY_ID=...
-  export AWS_SECRET_ACCESS_KEY=...
-  export AWS_SESSION_TOKEN=...
-  ```
-  Or use a named profile: `--profile <your-profile>`
+## API Endpoints
 
-## API response
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/quotes` | Random quote from any character |
+| `GET` | `/quotes/{character}` | Random quote for a specific character |
+| `GET` | `/characters` | Sorted list of all character names |
 
-Each GET request returns a JSON object with a random quote:
+### Response format
 
 ```json
 {
@@ -43,90 +49,103 @@ Each GET request returns a JSON object with a random quote:
 }
 ```
 
-| Field       | Type             | Description                              |
-|-------------|------------------|------------------------------------------|
-| `quoteId`   | string           | Unique identifier for the quote          |
-| `character` | string           | Character who says the quote             |
-| `text`      | string           | The Kaamelott quote                      |
-| `actor`     | string           | Actor who plays the character            |
-| `film`      | string \| null   | Film title if from the movie, else null  |
-| `season`    | string \| null   | Season if from the series, else null     |
-| `episode`   | string \| null   | Episode title if from the series, else null |
+| Field | Type | Description |
+|-------|------|-------------|
+| `quoteId` | string | Unique identifier |
+| `character` | string | Character who says the quote |
+| `text` | string | The quote |
+| `actor` | string | Actor who plays the character |
+| `film` | string \| null | Film title if from the movie |
+| `season` | string \| null | Season if from the series |
+| `episode` | string \| null | Episode title if from the series |
 
-## Local testing
+### Character names with accents
 
-Invoke the function directly:
-
-```bash
-sam build
-sam local invoke KamelottFunction -e events/event.json
-```
-
-Or start a local API server:
+Some character names contain French accented characters. Use percent-encoding in the URL:
 
 ```bash
-sam local start-api
-curl http://localhost:3000/kamelott
+# Léodagan → L%C3%A9odagan
+curl "https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/staging/quotes/L%C3%A9odagan"
 ```
 
-## Environments
+A `404` is returned when the character name is not found in the dataset.
 
-The project uses two isolated stacks — `kamelott-staging` and `kamelott-prod` — each with its own Lambda and API Gateway. Configuration is managed in `samconfig.toml`.
+## Prerequisites
 
-| Environment | Stack name        | Config env  | Behaviour                              |
-|-------------|-------------------|-------------|----------------------------------------|
-| Staging     | `kamelott-staging`| `staging`   | Deploys immediately, no confirmation   |
-| Prod        | `kamelott-prod`   | `prod`      | Shows changeset, requires confirmation |
+- Node.js 18+
+- AWS CLI configured (`aws configure` or a named profile)
+- CDK bootstrapped for your account/region (one-time, see below)
+
+## Setup
+
+```bash
+npm install
+```
+
+Bootstrap CDK for `ap-southeast-1` (one-time per AWS account):
+
+```bash
+npx cdk bootstrap aws://YOUR_ACCOUNT_ID/ap-southeast-1
+```
 
 ## Deploy
 
-Always build before deploying:
+```bash
+# Staging
+npx cdk deploy --context env=staging
+
+# Production (after validating on staging)
+npx cdk deploy --context env=prod
+```
+
+Both commands upload `kamelott/quotes.json` to S3 automatically via CDK BucketDeployment.
+
+CDK outputs the API URL and the load-quotes function name at the end of each deploy.
+
+### Populate DynamoDB (once per environment)
+
+After the first deploy, invoke the `load-quotes` Lambda to seed DynamoDB with the 1 028 quotes. The exact function name is printed in the CDK outputs.
 
 ```bash
-sam build
+aws lambda invoke \
+  --function-name kaamelott-load-quotes-staging \
+  --region ap-southeast-1 \
+  /tmp/load-result.json
+
+cat /tmp/load-result.json
+# → {"loaded":1028}
 ```
 
-Deploy to **staging**:
+Repeat for prod (`kaamelott-load-quotes-prod`). Re-run any time the quotes dataset changes.
+
+## Preview changes before deploy
 
 ```bash
-sam deploy --config-env staging
+npx cdk diff --context env=staging
+npx cdk diff --context env=prod
 ```
 
-Deploy to **prod** (only after validating on staging):
+## Destroy
 
 ```bash
-sam deploy --config-env prod
+npx cdk destroy --context env=staging
 ```
 
-The API Gateway URL is printed in the stack outputs at the end of each deployment:
+> **Note:** The prod DynamoDB table and S3 bucket use `RemovalPolicy.RETAIN`. After `cdk destroy --context env=prod`, delete them manually from the AWS console if needed.
+
+## Project structure
 
 ```
-https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/Prod/kamelott/
+├── bin/kaamelott.ts              # CDK app entry point
+├── lib/kaamelott-stack.ts        # All infrastructure (S3, DynamoDB, Lambdas, API GW)
+├── lambdas/
+│   ├── get-random-quote/         # GET /quotes
+│   ├── get-quote-by-character/   # GET /quotes/{character}
+│   ├── get-characters/           # GET /characters
+│   └── load-quotes/              # Admin: load quotes.json from S3 → DynamoDB
+├── data/
+│   └── quotes.json               # 1 028 Kaamelott quotes (source of truth, uploaded to S3 on deploy)
+├── cdk.json
+├── package.json
+└── tsconfig.json
 ```
-
-## Remote test
-
-```bash
-curl https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/Prod/kamelott/
-```
-
-## Logs
-
-```bash
-sam logs -n KamelottFunction --stack-name kamelott-staging --tail
-sam logs -n KamelottFunction --stack-name kamelott-prod --tail
-```
-
-## Cleanup
-
-Delete a specific stack:
-
-```bash
-sam delete --stack-name kamelott-staging
-sam delete --stack-name kamelott-prod
-```
-
-## Resources
-
-- [AWS SAM developer guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html)
-- [API Gateway REST API](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-rest-api.html)
