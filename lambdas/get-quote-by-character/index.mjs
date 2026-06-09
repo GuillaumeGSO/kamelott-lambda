@@ -4,6 +4,7 @@ import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 const client = new DynamoDBClient({});
 const dynamo = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = process.env.TABLE_NAME;
+const FAVORITES_TABLE_NAME = process.env.FAVORITES_TABLE_NAME;
 
 // Cached per character across warm invocations
 const characterCache = new Map();
@@ -43,9 +44,16 @@ export const lambdaHandler = async (event) => {
   const items = characterCache.get(character);
   const quote = items[Math.floor(Math.random() * items.length)];
 
+  const likesResult = await dynamo.send(new QueryCommand({
+    TableName: FAVORITES_TABLE_NAME,
+    KeyConditionExpression: 'quoteId = :qid',
+    ExpressionAttributeValues: { ':qid': quote.quoteId },
+    Select: 'COUNT',
+  }));
+
   return {
     statusCode: 200,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(quote),
+    body: JSON.stringify({ ...quote, likes: likesResult.Count ?? 0 }),
   };
 };

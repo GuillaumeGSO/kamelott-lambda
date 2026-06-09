@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
@@ -45,8 +46,18 @@ export class KaamelottStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // DynamoDB table — favorites: quoteId PK, alias SK
+    const favoritesTable = new dynamodb.Table(this, 'FavoritesTable', {
+      tableName: `kaamelott-favorites-${environment}`,
+      partitionKey: { name: 'quoteId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'alias', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: isProd ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
     const commonEnv = {
       TABLE_NAME: table.tableName,
+      FAVORITES_TABLE_NAME: favoritesTable.tableName,
       ENVIRONMENT: environment,
     };
 
@@ -66,6 +77,7 @@ export class KaamelottStack extends cdk.Stack {
       description: 'Returns a random Kaamelott quote',
     });
     table.grantReadData(getRandomQuote);
+    favoritesTable.grantReadData(getRandomQuote);
 
     // Lambda: GET /quotes/{character}
     const getQuoteByCharacter = new lambda.Function(this, 'GetQuoteByCharacter', {
@@ -77,6 +89,29 @@ export class KaamelottStack extends cdk.Stack {
       description: 'Returns a random Kaamelott quote filtered by character name',
     });
     table.grantReadData(getQuoteByCharacter);
+    favoritesTable.grantReadData(getQuoteByCharacter);
+
+    // Lambda: POST /quotes/{quoteId}/favorite
+    const postFavorite = new lambda.Function(this, 'PostFavorite', {
+      ...lambdaDefaults,
+      functionName: `kaamelott-post-favorite-${environment}`,
+      code: lambda.Code.fromAsset('lambdas/post-favorite'),
+      handler: 'index.lambdaHandler',
+      timeout: cdk.Duration.seconds(5),
+      description: 'Like or unlike a quote for a given alias',
+    });
+    favoritesTable.grantReadWriteData(postFavorite);
+
+    // Lambda: GET /favorites
+    const getFavorite = new lambda.Function(this, 'GetFavorite', {
+      ...lambdaDefaults,
+      functionName: `kaamelott-get-favorite-${environment}`,
+      code: lambda.Code.fromAsset('lambdas/get-favorite'),
+      handler: 'index.lambdaHandler',
+      timeout: cdk.Duration.seconds(5),
+      description: 'Returns whether a quote is liked by a given alias',
+    });
+    favoritesTable.grantReadData(getFavorite);
 
     // Lambda: GET /characters
     const getCharacters = new lambda.Function(this, 'GetCharacters', {
@@ -107,9 +142,20 @@ export class KaamelottStack extends cdk.Stack {
     bucket.grantRead(loadQuotes);
 
     // API Gateway
+    const apiLogGroup = new logs.LogGroup(this, 'ApiAccessLogs', {
+      logGroupName: `/aws/apigateway/kaamelott-${environment}`,
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     const api = new apigateway.RestApi(this, 'KaamelottApi', {
       restApiName: `kaamelott-api-${environment}`,
-      deployOptions: { stageName: environment },
+      deployOptions: {
+        stageName: environment,
+        loggingLevel: apigateway.MethodLoggingLevel.INFO,
+        accessLogDestination: new apigateway.LogGroupLogDestination(apiLogGroup),
+        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
+      },
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: ['GET'],
@@ -123,6 +169,14 @@ export class KaamelottStack extends cdk.Stack {
 
     const characterResource = quotes.addResource('{character}');
     characterResource.addMethod('GET', new apigateway.LambdaIntegration(getQuoteByCharacter), {
+      apiKeyRequired: true,
+    });
+
+    const favorites = api.root.addResource('favorites');
+    favorites.addMethod('POST', new apigateway.LambdaIntegration(postFavorite), {
+      apiKeyRequired: true,
+    });
+    favorites.addMethod('GET', new apigateway.LambdaIntegration(getFavorite), {
       apiKeyRequired: true,
     });
 
